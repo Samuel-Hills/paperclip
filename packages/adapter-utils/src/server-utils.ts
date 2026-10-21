@@ -3555,6 +3555,26 @@ function windowsPathExts(env: NodeJS.ProcessEnv): string[] {
   return (env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";").filter(Boolean);
 }
 
+export function pathValueFromEnv(
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform = process.platform,
+): string | undefined {
+  const preferredKeys =
+    platform === "win32" ? ["PATH", "Path", "path"] : ["PATH", "Path"];
+  for (const key of preferredKeys) {
+    const value = env[key];
+    if (typeof value === "string" && value.length > 0) return value;
+  }
+
+  if (platform !== "win32") return undefined;
+  for (const [key, value] of Object.entries(env)) {
+    if (key.toLowerCase() === "path" && typeof value === "string" && value.length > 0) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
 async function pathExists(candidate: string) {
   try {
     await fs.access(
@@ -3580,7 +3600,7 @@ async function resolveCommandPath(
     return (await pathExists(absolute)) ? absolute : null;
   }
 
-  const pathValue = env.PATH ?? env.Path ?? "";
+  const pathValue = pathValueFromEnv(env) ?? "";
   const delimiter = process.platform === "win32" ? ";" : ":";
   const dirs = pathValue.split(delimiter).filter(Boolean);
   const exts = process.platform === "win32" ? windowsPathExts(env) : [""];
@@ -3721,8 +3741,7 @@ async function resolveSpawnTarget(
 }
 
 export function ensurePathInEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  if (typeof env.PATH === "string" && env.PATH.length > 0) return env;
-  if (typeof env.Path === "string" && env.Path.length > 0) return env;
+  if (pathValueFromEnv(env)) return env;
   return { ...env, PATH: defaultPathForPlatform() };
 }
 
