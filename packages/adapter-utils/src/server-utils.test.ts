@@ -71,11 +71,28 @@ describe("PATH environment-key normalization", () => {
     ).toBe("C:\\Path");
   });
 
+  it("preserves an explicitly empty PATH on POSIX", () => {
+    const env = { PATH: "", Path: "/tools" };
+
+    expect(pathValueFromEnv(env, "linux")).toBe("");
+    expect(ensurePathInEnv(env, "linux")).toBe(env);
+  });
+
+  it("normalizes Windows PATH aliases before spawning children", () => {
+    const ensured = ensurePathInEnv({ PATH: "", path: "C:\\tools" }, "win32");
+
+    expect(ensured.PATH).toBe("C:\\tools");
+    expect(Object.keys(ensured).filter((key) => key.toLowerCase() === "path")).toEqual([
+      "PATH",
+    ]);
+  });
+
   it("preserves a lowercase Windows path when ensuring the execution environment", () => {
     const env = { path: "C:\\tools" };
     const ensured = ensurePathInEnv(env);
     if (process.platform === "win32") {
-      expect(ensured).toBe(env);
+      expect(ensured.PATH).toBe("C:\\tools");
+      expect(ensured.path).toBeUndefined();
     } else {
       expect(ensured).not.toBe(env);
     }

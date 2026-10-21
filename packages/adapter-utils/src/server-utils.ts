@@ -3559,14 +3559,19 @@ export function pathValueFromEnv(
   env: NodeJS.ProcessEnv,
   platform: NodeJS.Platform = process.platform,
 ): string | undefined {
+  if (platform !== "win32") {
+    if (typeof env.PATH === "string") return env.PATH;
+    if (typeof env.Path === "string") return env.Path;
+    return undefined;
+  }
+
   const preferredKeys =
-    platform === "win32" ? ["PATH", "Path", "path"] : ["PATH", "Path"];
+    ["PATH", "Path", "path"];
   for (const key of preferredKeys) {
     const value = env[key];
     if (typeof value === "string" && value.length > 0) return value;
   }
 
-  if (platform !== "win32") return undefined;
   for (const [key, value] of Object.entries(env)) {
     if (key.toLowerCase() === "path" && typeof value === "string" && value.length > 0) {
       return value;
@@ -3740,9 +3745,23 @@ async function resolveSpawnTarget(
   return { command: executable, args };
 }
 
-export function ensurePathInEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  if (pathValueFromEnv(env)) return env;
-  return { ...env, PATH: defaultPathForPlatform() };
+export function ensurePathInEnv(
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform = process.platform,
+): NodeJS.ProcessEnv {
+  const pathValue = pathValueFromEnv(env, platform);
+  if (platform !== "win32") {
+    if (pathValue !== undefined) return env;
+    return { ...env, PATH: defaultPathForPlatform() };
+  }
+
+  const pathKeys = Object.keys(env).filter((key) => key.toLowerCase() === "path");
+  if (pathKeys.length === 1 && pathKeys[0] === "PATH" && pathValue) return env;
+
+  const normalized = { ...env };
+  for (const key of pathKeys) delete normalized[key];
+  normalized.PATH = pathValue ?? defaultPathForPlatform();
+  return normalized;
 }
 
 export async function ensureAbsoluteDirectory(
