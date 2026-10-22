@@ -87,6 +87,13 @@ describe("PATH environment-key normalization", () => {
     ]);
   });
 
+  it("canonicalizes a Windows Path alias before spawning children", () => {
+    const ensured = ensurePathInEnv({ Path: "C:\\tools" }, "win32");
+
+    expect(ensured.PATH).toBe("C:\\tools");
+    expect(ensured.Path).toBeUndefined();
+  });
+
   it("preserves a lowercase Windows path when ensuring the execution environment", () => {
     const env = { path: "C:\\tools" };
     const ensured = ensurePathInEnv(env);
